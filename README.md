@@ -4,7 +4,7 @@ Projeto da Disciplina Infraestrutura de Comunicações - 2022.2
 
 Universidade Federal de Pernambuco - UFPE
 
-Centro de Intromática - CIN
+Centro de Informática - CIN
 
 Grupo:
 
