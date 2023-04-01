@@ -27,7 +27,7 @@ while True :
 testFile.close()
 print('Finished')
 
-responseFile = open('responseFile.txt', mode='wb') # abre o arquivo resposta para escrita de bytes
+responseFile = open('response - ' + fileName, mode='wb') # abre o arquivo resposta para escrita de bytes
 
 print('Waiting Response')
 
