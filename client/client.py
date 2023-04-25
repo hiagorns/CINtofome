@@ -1,47 +1,69 @@
 from socket import *
+import rdt3
 
-#configurações do servidor com que o cliente irá se comunicar
-serverName = 'localhost'
-serverPort = 12000
+# configurações do servidor com que o cliente irá se comunicar
+server_name = "localhost"
+server_port = 12000
 BUFFER_SIZE = 1024
 
-clientSocket = socket(AF_INET, SOCK_DGRAM) # cria o socket
+client_socket = socket(AF_INET, SOCK_DGRAM)  # cria o socket
 
-fileName = 'testFile.txt'
-path = './' + fileName
+file_name = "testFile.txt"
+path = "./" + file_name
 
-testFile = open(path, mode="rb") # Abre o arquivo que será enviado no modo de leitura de bytes
+# Abre o arquivo que será enviado no modo de leitura de bytes
+try:
+    test_file = open(path, mode="rb")
+except OSError as error_msg:
+    print(f"Error while opening file: {error_msg}")
 
-clientSocket.sendto(fileName.encode(), (serverName, serverPort)) # Envia o nome do arquivo para que ele seja criado no servidor
+print(f"File {file_name} opened successfully!")
 
-print(f'sending {fileName}')
+# Envia o nome do arquivo para que ele seja criado no servidor
+# client_socket.sendto(file_name.encode(), (server_name, server_port))
+rdt3.send_data(
+    data=file_name.encode(),
+    src_socket=client_socket,
+    address=(server_name, server_port),
+)
+print(f"Sending {file_name}...")
 
-while True :
-    data = testFile.read(BUFFER_SIZE) # lê os bytes do arquivo na quantidade especificada por BUFFER_SIZE
-    
-    clientSocket.sendto(data, (serverName, serverPort)) # envia os bytes lidos
-    
-    if(not data): # se os bytes lidos estiverem vazios, sai o loop e para de enviar
+while True:
+    # lê os bytes do arquivo na quantidade especificada por BUFFER_SIZE
+    data = test_file.read(BUFFER_SIZE)
+
+    # envia os bytes lidos
+    rdt3.send_data(
+        data=data, src_socket=client_socket, address=(server_name, server_port)
+    )
+
+    if not data:  # se os bytes lidos estiverem vazios, sai o loop e para de enviar
         break
-    
-testFile.close()
-print('Finished')
 
-responseFile = open('response - ' + fileName, mode='wb') # abre o arquivo resposta para escrita de bytes
+test_file.close()
+print("Finished")
 
-print('Waiting Response')
+# abre o arquivo resposta para escrita de bytes
+response_file = open("response_" + file_name, mode="wb")
 
-data, serverAddress = clientSocket.recvfrom(BUFFER_SIZE) # recebe o primeiro pacote de bytes
-responseFile.write(data)  # escreve no arquivo resposta os bytes recebidos
-print(f'Receiving response file')
-while True :
-    data, serverAddress = clientSocket.recvfrom(BUFFER_SIZE) # continua recebendo os pacotes restantes
-    if( not data) : # se os dados recebidos estiverem vazios, significa que o arquivo já foi recebido por completo, então sai do loop
+print("Waiting Response")
+
+# recebe o primeiro pacote de bytes
+data, server_address = rdt3.receive_data(dest_socket=client_socket, buffer_size=BUFFER_SIZE)
+
+response_file.write(data)  # escreve no arquivo resposta os bytes recebidos
+print(f"Receiving response file...")
+
+while True:
+    # continua recebendo os pacotes restantes
+    data, server_address = rdt3.receive_data(dest_socket=client_socket, buffer_size=BUFFER_SIZE)
+
+    # se os dados recebidos estiverem vazios, significa que o arquivo já foi recebido por completo, então sai do loop
+    if not data:
         break
-    responseFile.write(data) # escreve no arquivo resposta os bytes recebidos
+    response_file.write(data)  # escreve no arquivo resposta os bytes recebidos
 
-responseFile.close() # fecha o arquivo resposta
-print('Finished')
+response_file.close()  # fecha o arquivo resposta
+print("Finished")
 
-clientSocket.close() # encerra o socket
-
+client_socket.close()  # encerra o socket
