@@ -55,6 +55,7 @@ def ACKConfimation(sock, currentACK):
             
             if reply["head"]["ack"] == currentACK: 
                 received = True
+                break
             else:
                 print("ack incorreto!") #se o ack foi incorreto, reconfigura o timeout para o tempo restante
                 print(f"tempo restante: {sock.gettimeout() - (time.time() - start)}")
