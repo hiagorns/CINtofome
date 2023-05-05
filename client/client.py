@@ -7,10 +7,10 @@ from common import *
 #configurações do servidor com que o cliente irá se comunicar
 serverName = 'localhost'
 serverPort = 12000
-READ_BUFFER_SIZE = 963 # Como o cabeçalho está acrescentando 61 bytes ao pacote, o buffer de leitura foi reduzido para cumprir a restrição do projeto
 
 #Definição do ACK inicial
 nextAck = 0
+nextRcvACK = -1
 
 clientSocket = socket(AF_INET, SOCK_DGRAM) # cria o socket
 
@@ -28,6 +28,8 @@ if(not received): # se o pacote não foi recebido e todas as tentativas esgotara
     testFile.close()
     clientSocket.close() # encerra o socket
     exit()
+else:
+    nextAck = 1 if nextAck == 0 else 0 
 
 print(f'sending {fileName}')
 
@@ -51,25 +53,29 @@ while True :
 testFile.close()
 print('Finished')
 
-responseFile = open('responseFile.txt', mode='wb') # abre o arquivo resposta para escrita de bytes
+responseFile = open(f'responseFile-{fileName}', mode='wb') # abre o arquivo resposta para escrita de bytes
 
 print('Waiting Response')
 
-data =''
-pkt, serverAddress = clientSocket.recvfrom(BUFFER_SIZE) # recebe o primeiro pacote de bytes
-if(not corrupt(pkt)):
-    data = pickle.loads(pkt)['data']
-    responseFile.write(data)  # escreve no arquivo resposta os bytes recebidos
-
-print(f'Receiving response file')
 while True :
-    pkt, serverAddress = clientSocket.recvfrom(BUFFER_SIZE)
-    if(not corrupt(pkt)):
-        data = pickle.loads(pkt)['data']
+    pkt, (serverName, serverPort) = clientSocket.recvfrom(BUFFER_SIZE) #recebe o pacote com dados do arquivo
+    
+    pktObj = pickle.loads(pkt) #remonta o pacote recebido no objeto pacote
+    
+    if((not corrupt(pktObj)) and is_ACK(pktObj, nextRcvACK)): # verifica se os checksums batem e se foi recebido o ACK correto
+        if(nextRcvACK == -1):
+            nextRcvACK = pktObj['head']['ack']
+        nextRcvACK = 1 if nextRcvACK == 0 else 0 # troca o ACK esperado
+        lastPktRcvd = pkt # guarda ultimo pacote recebido para reenvio em caso de ACK recebido errado
+        clientSocket.sendto(lastPktRcvd, (serverName, serverPort)) # envia o ultimo pacote recebido com o mesmo ACK para confirmação
+        
+        data = pktObj['data']
+        if(not data): # se os dados chegam vazios, significa que o arquivo já foir completamente recebido
+            break
         responseFile.write(data)  # escreve no arquivo resposta os bytes recebidos
-    if(not data):
-        break
-
+    elif (not is_ACK(pktObj, nextRcvACK)): # se foi recebido o ACK errado significa que é dulpicata
+        clientSocket.sendto(lastPktRcvd, (serverName, serverPort)) # reenvia o ultimo pacote recebido com o mesmo ACK para confirmação
+    
 responseFile.close() # fecha o arquivo resposta
 print('Finished')
 
